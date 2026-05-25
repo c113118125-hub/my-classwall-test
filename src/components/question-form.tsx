@@ -8,36 +8,42 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 const MAX = 500;
-const CHIPS = ["匿名", "全班可見", "即時同步"];
+const CHIPS = ["美食推薦", "全班可見", "即時同步"];
+const CATEGORIES = ["早餐", "午餐", "晚餐", "甜點", "咖啡", "飲料", "其他"];
 
 export function QuestionForm() {
-  const [content, setContent] = useState("");
+  const [name, setName] = useState("");
+  const [location, setLocation] = useState("");
+  const [category, setCategory] = useState<string>(CATEGORIES[0]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flashKey, setFlashKey] = useState(0); // 送出成功 flash ring
 
-  const length = content.length;
-  const ratio = Math.min(length / MAX, 1);
+  const length = name.length + location.length;
+  const ratio = Math.min(length / (MAX / 2), 1);
   const nearLimit = ratio >= 0.85;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const trimmed = content.trim();
-    if (!trimmed) return;
+    const trimmedName = name.trim();
+    const trimmedLoc = location.trim();
+    if (!trimmedName || !trimmedLoc) return;
 
     setSubmitting(true);
     setError(null);
 
     const { error: insertError } = await supabase
-      .from("questions")
-      .insert({ content: trimmed });
+      .from("restaurants")
+      .insert({ name: trimmedName, location: trimmedLoc, category });
 
     setSubmitting(false);
     if (insertError) {
       setError(insertError.message);
       return;
     }
-    setContent("");
+    setName("");
+    setLocation("");
+    setCategory(CATEGORIES[0]);
     setFlashKey((k) => k + 1);
   }
 
@@ -72,11 +78,11 @@ export function QuestionForm() {
       </div>
 
       <Textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="想問什麼？匿名發問，全班都看得到..."
-        maxLength={MAX}
-        rows={3}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="美食點名稱..."
+        maxLength={100}
+        rows={1}
         disabled={submitting}
         className={cn(
           "resize-none border-transparent bg-transparent text-[15px] leading-relaxed",
@@ -84,6 +90,36 @@ export function QuestionForm() {
           "placeholder:text-muted-foreground/60"
         )}
       />
+
+      <Textarea
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        placeholder="位置..."
+        maxLength={200}
+        rows={1}
+        disabled={submitting}
+        className={cn(
+          "resize-none border-transparent bg-transparent text-[15px] leading-relaxed",
+          "px-0 focus-visible:ring-0 focus-visible:border-transparent",
+          "placeholder:text-muted-foreground/60"
+        )}
+      />
+
+      <select
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        disabled={submitting}
+        className={cn(
+          "border-transparent bg-transparent text-[15px] leading-relaxed",
+          "px-0 focus-visible:ring-0 focus-visible:border-transparent"
+        )}
+      >
+        {CATEGORIES.map((cat) => (
+          <option key={cat} value={cat}>
+            {cat}
+          </option>
+        ))}
+      </select>
 
       {/* 字數進度條 */}
       <div className="mt-3 flex items-center gap-3">
@@ -127,10 +163,18 @@ export function QuestionForm() {
 
           <motion.button
             type="submit"
-            disabled={submitting || content.trim().length === 0}
+            disabled={
+              submitting ||
+              name.trim().length === 0 ||
+              location.trim().length === 0
+            }
             whileTap={{ scale: 0.96 }}
             whileHover={
-              submitting || content.trim().length === 0 ? undefined : { y: -1 }
+              submitting ||
+              name.trim().length === 0 ||
+              location.trim().length === 0
+                ? undefined
+                : { y: -1 }
             }
             className={cn(
               "group inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-full",
@@ -159,7 +203,7 @@ export function QuestionForm() {
               </>
             ) : (
               <>
-                <span>送出問題</span>
+                <span>推薦美食</span>
                 <motion.span
                   aria-hidden
                   className="inline-block"

@@ -3,18 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
-import type { Answer } from "@/types/database";
+import type { Review } from "@/types/database";
 
 /**
- * 載入單一 question 的回答 + Realtime 訂閱
+ * 載入單一 restaurant 的評論 + Realtime 訂閱
  *
- * 用法：在 QuestionCard 展開時 mount 這個 hook，
+ * 用法：在 RestaurantCard 展開時 mount 這個 hook，
  * 收起時 unmount 即自動取消訂閱（節省連線數）。
  *
  * 載入順序：時間升冪（舊 → 新，像聊天訊息）
  */
 export function useAnswers(questionId: string) {
-  const [answers, setAnswers] = useState<Answer[]>([]);
+  const [answers, setAnswers] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,9 +23,9 @@ export function useAnswers(questionId: string) {
 
     async function load() {
       const { data, error: fetchError } = await supabase
-        .from("answers")
+        .from("reviews")
         .select("*")
-        .eq("question_id", questionId)
+        .eq("restaurant_id", questionId)
         .order("created_at", { ascending: true });
 
       if (cancelled) return;
@@ -39,7 +39,7 @@ export function useAnswers(questionId: string) {
 
     load();
 
-    // Realtime：只訂閱該題的 INSERT
+    // Realtime：只訂閱該餐廳的 INSERT
     const channel = supabase
       .channel(`answers-${questionId}`)
       .on(
@@ -47,11 +47,11 @@ export function useAnswers(questionId: string) {
         {
           event: "INSERT",
           schema: "public",
-          table: "answers",
-          filter: `question_id=eq.${questionId}`,
+          table: "reviews",
+          filter: `restaurant_id=eq.${questionId}`,
         },
         (payload) => {
-          const next = payload.new as Answer;
+          const next = payload.new as Review;
           setAnswers((prev) =>
             prev.some((a) => a.id === next.id) ? prev : [...prev, next]
           );
@@ -68,11 +68,11 @@ export function useAnswers(questionId: string) {
   const addAnswer = useCallback(
     async (content: string) => {
       const trimmed = content.trim();
-      if (!trimmed) return { error: "回答不能為空" };
+      if (!trimmed) return { error: "評論不能為空" };
 
       const { error: insertError } = await supabase
-        .from("answers")
-        .insert({ question_id: questionId, content: trimmed });
+        .from("reviews")
+        .insert({ restaurant_id: questionId, content: trimmed });
 
       if (insertError) return { error: insertError.message };
       return { error: null };

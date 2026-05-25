@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
-import type { Question } from "@/types/database";
+import type { Restaurant } from "@/types/database";
 
 const DEFAULT_PAGE_SIZE = 10;
 
 // 統一排序規則：先按讚數降冪，同讚數時新的在前
-function sortByLikes(list: Question[]): Question[] {
+function sortByLikes(list: Restaurant[]): Restaurant[] {
   return [...list].sort((a, b) => {
     if (b.likes !== a.likes) return b.likes - a.likes;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -16,7 +16,7 @@ function sortByLikes(list: Question[]): Question[] {
 }
 
 /**
- * 分頁載入 questions + Realtime 訂閱
+ * 分頁載入 restaurants + Realtime 訂閱
  *
  * 策略：
  * - DB 端按 likes DESC, created_at DESC 分頁（高讚的永遠在前面）
@@ -24,11 +24,11 @@ function sortByLikes(list: Question[]): Question[] {
  * - INSERT / UPDATE 後都重新排序，確保位置正確
  * - 用 idSet 去重避免分頁與 realtime 同時拿到同一筆
  *
- * 已知代價：高讚題目按讚變動時可能在分頁邊界漂移，
+ * 已知代價：高讚餐廳按讚變動時可能在分頁邊界漂移，
  * 教學情境量級不大、可接受。
  */
 export function useQuestions(pageSize = DEFAULT_PAGE_SIZE) {
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -50,7 +50,7 @@ export function useQuestions(pageSize = DEFAULT_PAGE_SIZE) {
     const to = from + pageSize - 1;
 
     const { data, error: fetchError } = await supabase
-      .from("questions")
+      .from("restaurants")
       .select("*")
       .order("likes", { ascending: false })
       .order("created_at", { ascending: false })
@@ -85,20 +85,20 @@ export function useQuestions(pageSize = DEFAULT_PAGE_SIZE) {
       .channel("questions-realtime")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "questions" },
+        { event: "INSERT", schema: "public", table: "restaurants" },
         (payload) => {
-          const next = payload.new as Question;
+          const next = payload.new as Restaurant;
           if (idSetRef.current.has(next.id)) return;
           idSetRef.current.add(next.id);
-          // 新題依讚數插入正確位置（新題 likes=0 通常在最後一頁，但仍照規則排）
+          // 新餐廳依讚數插入正確位置（新餐廳 likes=0 通常在最後一頁，但仍照規則排）
           setQuestions((prev) => sortByLikes([next, ...prev]));
         }
       )
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "questions" },
+        { event: "UPDATE", schema: "public", table: "restaurants" },
         (payload) => {
-          const next = payload.new as Question;
+          const next = payload.new as Restaurant;
           // 按讚變動後重新排序，讓位置即時跟著動
           setQuestions((prev) =>
             sortByLikes(prev.map((q) => (q.id === next.id ? next : q)))
@@ -107,9 +107,9 @@ export function useQuestions(pageSize = DEFAULT_PAGE_SIZE) {
       )
       .on(
         "postgres_changes",
-        { event: "DELETE", schema: "public", table: "questions" },
+        { event: "DELETE", schema: "public", table: "restaurants" },
         (payload) => {
-          const old = payload.old as Pick<Question, "id">;
+          const old = payload.old as Pick<Restaurant, "id">;
           idSetRef.current.delete(old.id);
           setQuestions((prev) => prev.filter((q) => q.id !== old.id));
         }

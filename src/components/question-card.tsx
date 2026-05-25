@@ -7,10 +7,10 @@ import { AnswerSection } from "@/components/answer-section";
 import { addLiked, hasLiked } from "@/lib/liked-store";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import type { Question } from "@/types/database";
+import type { Restaurant } from "@/types/database";
 
 type Props = {
-  question: Question;
+  question: Restaurant;
 };
 
 // 按讚瞬間的粒子噴發角度
@@ -75,7 +75,7 @@ function QuestionCardImpl({ question }: Props) {
     if (pending || alreadyLiked) return;
     setPending(true);
     const { error } = await supabase
-      .from("questions")
+      .from("restaurants")
       .update({ likes: question.likes + 1 })
       .eq("id", question.id);
     setPending(false);
@@ -94,6 +94,7 @@ function QuestionCardImpl({ question }: Props) {
       initial={{ opacity: 0, y: 16, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.96 }}
+      whileHover={{ y: -4, scale: 1.01 }}
       transition={{ type: "spring", stiffness: 280, damping: 26 }}
     >
       {/* 內層 wrapper 承載 ref-based 3D tilt
@@ -140,8 +141,14 @@ function QuestionCardImpl({ question }: Props) {
               🔥
             </motion.span>
           ) : null}
-          {question.content}
+          <strong>{question.name}</strong> · {question.location}
         </p>
+
+        <div className="mt-2 flex items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            {question.category}
+          </span>
+        </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -270,13 +277,15 @@ function QuestionCardImpl({ question }: Props) {
   );
 }
 
-// React.memo：只比對 id / likes / content，
+// React.memo：只比對 id / likes / name / location / category，
 // 父層 state 變動（mouse spotlight、count-up tick）不會引發 re-render
 export const QuestionCard = memo(QuestionCardImpl, (prev, next) => {
   return (
     prev.question.id === next.question.id &&
     prev.question.likes === next.question.likes &&
-    prev.question.content === next.question.content &&
+    prev.question.name === next.question.name &&
+    prev.question.location === next.question.location &&
+    prev.question.category === next.question.category &&
     prev.question.created_at === next.question.created_at
   );
 });
